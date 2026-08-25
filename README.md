@@ -34,6 +34,8 @@ Small and mid-sized Linux servers often lack real-time SSH attack detection with
 - [🔮 Possible Future Enhancements](#-possible-future-enhancements)
 - [🐛 Troubleshooting](#-troubleshooting)
 - [📝 License](#-license)
+- [🤔 FAQ: Why Not Just Whitelist IPs in firewalld?](#-faq-why-not-just-whitelist-ips-in-firewalld)
+
 
 ---
 
@@ -474,6 +476,79 @@ cat analysis_output/firewall.log
 sudo apt install firewalld -y   # or yum
 sudo systemctl enable --now firewalld
 ```
+## 🤔 FAQ: Why Not Just Whitelist IPs in firewalld?
+
+This is the most common question — and a valid one. If your server is accessed by only 2–3 people with **static IPs**, a default-deny whitelist **is** the stronger approach. Use it.
+
+But most real-world servers don't live in that clean scenario. Here's why MJ-IPguard exists **alongside**, not instead of, IP whitelisting:
+
+### 1. Dynamic IPs Break Whitelists
+
+Most developers and remote workers connect from residential ISPs with **dynamic IPs** that change every few days. Every change means:
+
+- A support ticket or Slack message
+- A manual `firewall-cmd --remove-rich-rule` + `--add-rich-rule` update
+- A risk of accidental lockout if the admin's IP also changed
+
+MJ-IPguard eliminates that operational cost — legitimate users connect freely while attackers get blocked within **3 seconds** of detection.
+
+### 2. You Don't Always Know Who Needs Access
+
+New hires, contractors, CI/CD runners, third-party monitoring agents, emergency responders — these connections come from IPs you didn't know about yesterday. A strict whitelist blocks **all of them** until someone manually intervenes, potentially causing hours of downtime during an incident.
+
+### 3. Whitelisting Gives You Zero Visibility
+
+A default-deny rule **silently drops packets**. You never know someone was attacking you.
+
+| What you get | Whitelist Only | MJ-IPguard |
+|---|---|---|
+| Attack count | ❌ | ✅ `threat_ip.json` |
+| Attack categories | ❌ | ✅ brute_force / lockout / pam_failure |
+| Timestamps | ❌ | ✅ Every event logged |
+| Last 10 logs per category | ❌ | ✅ `threat_ip.log` |
+| Email alerts | ❌ | ✅ Every 500 attacks |
+| Audit trail for compliance | ❌ | ✅ `firewall_rules.log` |
+
+A whitelist gives you **none of this**.
+
+### 4. A Compromised Whitelisted IP Bypasses Everything
+
+If a developer's home network is compromised and the attacker obtains their credentials, the attacker connects from a **whitelisted IP**. Firewalld lets them straight through.
+
+MJ-IPguard would still detect the brute-force behavior — wrong passwords, PAM failures, lockout events — and block that IP based on **behavior, not identity**.
+
+> **Whitelisting trusts the IP. MJ-IPguard watches the behavior.**
+
+### 5. Compliance Requires Logs, Not Just Blocks
+
+SOC 2, ISO 27001, PCI-DSS — most compliance frameworks ask:
+
+> *"Can you show us the logs of what was attempted, when, and how you responded?"*
+
+A silent firewall drop doesn't produce that evidence. MJ-IPguard's structured JSON and log output gives you a **complete, timestamped audit trail** ready for review.
+
+### 6. Defense in Depth — Layers, Not Walls
+
+Security is never a single mechanism. The strongest setups use multiple layers:
+
+| Layer | Mechanism | Handles |
+|---|---|---|
+| **Layer 1** | firewalld whitelist | Known static IPs (office, CI/CD, monitoring) |
+| **Layer 2** | MJ-IPguard | Dynamic users, unknown sources, compromised whitelisted IPs |
+| **Layer 3** | SSH key-only auth | Eliminates password brute-force entirely |
+
+> MJ-IPguard already supports this hybrid model — `protect-my-ip.sh` whitelists the admin's current IP **before** any blocking rules are applied. A planned enhancement will add a `whitelist.txt` that the firewall blocker checks before banning, so known IPs are never blocked even if they trigger detection patterns.
+
+### TL;DR
+
+| Scenario | Best Approach |
+|---|---|
+| 2–3 static IPs, no dynamic users | Whitelist only ✅ |
+| Dynamic IPs, remote team, growing startup | MJ-IPguard ✅ |
+| Compliance required, audit logs needed | MJ-IPguard ✅ |
+| Maximum security | Whitelist **+** MJ-IPguard **+** key-only auth ✅✅✅ |
+
+**Whitelist what you can. Let MJ-IPguard catch everything else.**
 ## Security Recommendation
 
 MJ-IPguard is a defense-in-depth tool, not a replacement for SSH hardening.
