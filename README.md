@@ -474,7 +474,20 @@ cat analysis_output/firewall.log
 sudo apt install firewalld -y   # or yum
 sudo systemctl enable --now firewalld
 ```
+## Security Recommendation
 
+MJ-IPguard is a defense-in-depth tool, not a replacement for SSH hardening.
+
+Where operationally possible, protect SSH using one or more of:
+
+- VPN-only or bastion-host access
+- Source-IP allowlisting in firewalld
+- SSH key authentication
+- Disabling password authentication
+- Disabling direct root login
+- MFA for privileged access
+
+MJ-IPguard is most useful when static source-IP allowlisting is not practical or when additional monitoring, alerting, and automated response are required.
 ---
 
 ## 📝 License
